@@ -502,11 +502,9 @@ dialog img { display: block; max-width: 100%; height: auto; margin: auto; border
   font-weight: 400;
 }
 #manual-finding-form textarea { resize: vertical; }
-#manual-finding-form input[type="file"] { font-size: 13px; }
 .manual-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 8px; }
 .manual-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .manual-actions button[type="submit"] { background: var(--blue); color: #fff; }
-.manual-actions button:disabled { opacity: .65; cursor: default; }
 #manual-finding-form #manual-finding-error { color: #a12d3a; }
 .manual-description { white-space: pre-wrap; }
 
@@ -611,6 +609,7 @@ dialog img { display: block; max-width: 100%; height: auto; margin: auto; border
 </header>
 <main class="frame" id="report">
 <section id="findings"><div class="section-heading finding-heading"><h2>Новые правки</h2><button class="add-finding" type="button">Добавить правку</button></div>
+<p id="shared-findings-error" class="shown" role="status" hidden>Общие правки пока не загрузились. <a href="https://github.com/Pequodd/tusa-qa/issues" target="_blank" rel="noopener">Открыть GitHub</a></p>
 <div class="device-filters" role="group" aria-label="Новые правки по экрану">
 <button type="button" data-device="all" aria-controls="findings-list" aria-pressed="true">Все</button>
 <button type="button" data-device="desktop" aria-controls="findings-list" aria-pressed="false">Десктоп</button><button type="button" data-device="mobile" aria-controls="findings-list" aria-pressed="false">Мобильная версия</button>
@@ -917,20 +916,19 @@ dialog img { display: block; max-width: 100%; height: auto; margin: auto; border
 <dialog id="manual-finding-dialog" aria-labelledby="manual-finding-title">
   <form id="manual-finding-form">
     <h2 id="manual-finding-title">Добавить правку</h2>
-    <p>Правка сохранится в этом браузере.</p>
+    <p>После публикации в GitHub правку увидят все, кто откроет отчёт. Там же можно вставить скриншоты через Ctrl+V.</p>
     <label>Название<input name="title" required maxlength="140" autofocus></label>
     <div class="manual-fields">
       <label>Экран<select name="device" required><option value="">Выбрать экран</option><option value="desktop">Десктоп</option><option value="mobile">Мобильная версия</option><option value="both">Оба экрана</option></select></label>
       <label>Важность<select name="priority"><option value="p1">Важно</option><option value="p2" selected>Может подождать</option><option value="p3">Текстовые правки</option></select></label>
     </div>
     <label>Описание<textarea name="description" required maxlength="4000" rows="4"></textarea></label>
-    <label class="manual-upload" data-upload-device="desktop" hidden>Скриншот · десктоп<input type="file" name="desktop" accept="image/png,image/jpeg,image/webp,image/gif,image/avif"></label><label class="manual-upload" data-upload-device="mobile" hidden>Скриншот · мобильная версия<input type="file" name="mobile" accept="image/png,image/jpeg,image/webp,image/gif,image/avif"></label>
     <p id="manual-finding-error" role="alert" hidden></p>
-    <div class="manual-actions"><button type="button" id="manual-finding-cancel">Отмена</button><button type="submit">Добавить правку</button></div>
+    <div class="manual-actions"><button type="button" id="manual-finding-cancel">Отмена</button><button type="submit">Продолжить в GitHub</button></div>
   </form>
 </dialog>
 <template id="manual-finding-template"><details class="record"><summary><span class="case-key"></span><span class="case-title"></span><span class="pill"></span></summary>
-  <div class="record-body"><dl class="result"><div><dt>Описание</dt><dd class="manual-description"></dd></div></dl><div class="finding-gallery" hidden></div></div></details></template>
+  <div class="record-body"><dl class="result"><div><dt>Описание</dt><dd class="manual-description"></dd></div></dl><div class="finding-gallery" hidden></div><div class="ref"><a target="_blank" rel="noopener"></a></div></div></details></template>
 <template id="manual-board-card-template"><li class="board-card"><a class="board-card-link" draggable="false"><span class="case-key"></span><span class="pill"></span><span class="board-card-title"></span></a><button class="board-grip" type="button" aria-haspopup="dialog" title="Перетащить или открыть действия"><span aria-hidden="true"></span></button></li></template>
 <dialog id="viewer" aria-label="Просмотр скриншота"><form method="dialog"><p id="caption"></p><button aria-label="Закрыть изображение" autofocus>Закрыть</button></form><div class="viewer-image"><img alt="Скриншот для проверки"></div></dialog>
 
@@ -1073,6 +1071,8 @@ openHash();
 (() => {
   const storageKey = 'tusa-qa-kanban-v1';
   const manualPrefix = 'tusa-qa-manual-v1:';
+  const issueRoot = 'https://github.com/Pequodd/tusa-qa/issues/';
+  const issueFeed = 'https://api.github.com/repos/Pequodd/tusa-qa/issues';
   const track = boardView.querySelector('.board-columns');
   const cards = new Map([...track.querySelectorAll('[data-card]')].map(card => [card.dataset.card, card]));
   const reportRecords = new Map([...reportView.querySelectorAll('.record')].map(record => [record.id, record]));
@@ -1097,10 +1097,9 @@ openHash();
   const manualDialog = document.querySelector('#manual-finding-dialog');
   const manualForm = document.querySelector('#manual-finding-form');
   const manualError = document.querySelector('#manual-finding-error');
-  const manualSubmit = manualForm.querySelector('[type="submit"]');
   const manualCancel = document.querySelector('#manual-finding-cancel');
   const manualDevice = manualForm.elements.namedItem('device');
-  const uploads = [...manualForm.querySelectorAll('[data-upload-device]')];
+  const sharedError = document.querySelector('#shared-findings-error');
   const deviceNames = new Map([...manualDevice.options].slice(1, -1).map(option => [option.value, option.textContent]));
   const priorityNames = new Map([...manualForm.elements.namedItem('priority').options].map(option => [option.value, option.textContent]));
   const archived = new Set();
@@ -1108,40 +1107,94 @@ openHash();
   let actionCard = null;
   let drag = null;
   let recentDrag = null;
-  let manualCount = 0;
+  let lastSharedLoad = 0;
+  let loadingShared = false;
 
   const columnOf = card => card.closest('.board-column').dataset.column;
   const cardNumber = card => card.querySelector('.case-key').textContent;
 
-  function manualScreenshot(groupName, data) {
+  function issueUrl(entry) {
+    const url = new URL('new', issueRoot);
+    const metadata = {devices: entry.devices, priority: entry.priority};
+    if (entry.id) metadata.draft = entry.id;
+    const lines = ['<!-- tusa-qa:v1 ' + JSON.stringify(metadata) + ' -->', '', entry.description];
+    for (const device of entry.devices) {
+      lines.push('', '### Скриншоты · ' + deviceNames.get(device), '', '<!-- Вставь сюда изображение через Ctrl+V. -->');
+    }
+    url.searchParams.set('title', entry.title);
+    url.searchParams.set('body', lines.join('\n'));
+    return url.href;
+  }
+
+  function imageLinks(text) {
+    const images = new Set();
+    for (const match of text.matchAll(/https:\/\/[^\s<>"'()[\]]+/g)) {
+      const url = new URL(match[0]);
+      const githubAttachment = url.hostname === 'github.com' && /^\/user-attachments\/assets\/[\w-]+\/?$/.test(url.pathname);
+      if (githubAttachment || url.hostname === 'user-images.githubusercontent.com') images.add(url.href);
+    }
+    return [...images];
+  }
+
+  function fromIssue(issue) {
+    if (issue.pull_request || !['OWNER', 'MEMBER', 'COLLABORATOR'].includes(issue.author_association)) return null;
+    if (!Number.isInteger(issue.number) || typeof issue.title !== 'string' || typeof issue.body !== 'string') return null;
+    const marker = issue.body.match(/^<!-- tusa-qa:v1 ([^\r\n]+) -->\s*/);
+    if (!marker) return null;
+    try {
+      const metadata = JSON.parse(marker[1]);
+      if (!priorityNames.has(metadata.priority) || !Array.isArray(metadata.devices)) return null;
+      const devices = [...new Set(metadata.devices)];
+      if (!devices.length || !devices.every(device => deviceNames.has(device))) return null;
+      const text = issue.body.slice(marker[0].length);
+      const parts = text.split(/^### Скриншоты · (Десктоп|Мобильная версия)[ \t]*$/m);
+      const screenshots = {};
+      for (const device of devices) {
+        const section = parts.findIndex((value, index) => index % 2 === 1 && value === deviceNames.get(device));
+        const images = imageLinks(section === -1 ? '' : parts[section + 1]);
+        screenshots[device] = !images.length && devices.length === 1 ? imageLinks(text) : images;
+      }
+      const id = /^manual-[a-f0-9-]{36}$/.test(metadata.draft) ? metadata.draft : 'manual-issue-' + issue.number;
+      const description = parts[0].replace(/<img\b[^>]*>/gi,'').replace(/!\[[^\]]*\]\([^)]+\)/g,'').trim();
+      return {id, title: issue.title, description, devices, priority: metadata.priority, screenshots, number: issue.number};
+    } catch {
+      return null;
+    }
+  }
+
+  function manualScreenshot(device, sources) {
     const group = document.createElement('div');
     group.className = 'evidence-set';
-    group.dataset.evidenceDevice = groupName;
+    group.dataset.evidenceDevice = device;
     group.setAttribute('role', 'group');
-    group.setAttribute('aria-label', deviceNames.get(groupName));
+    group.setAttribute('aria-label', deviceNames.get(device));
     const heading = document.createElement('p');
-    heading.textContent = deviceNames.get(groupName);
+    heading.textContent = deviceNames.get(device);
     const gallery = document.createElement('div');
     gallery.className = 'gallery';
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'evidence';
-    const image = document.createElement('img');
-    image.alt = '';
-    image.loading = 'lazy';
-    image.src = data;
-    const label = document.createElement('span');
-    label.textContent = 'Скриншот';
-    button.append(image, label);
-    gallery.append(button);
+    for (const source of sources) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'evidence';
+      const image = document.createElement('img');
+      image.alt = '';
+      image.loading = 'lazy';
+      image.src = source;
+      const label = document.createElement('span');
+      label.textContent = 'Скриншот';
+      button.append(image, label);
+      gallery.append(button);
+    }
     group.append(heading, gallery);
     return group;
   }
 
   function registerManual(entry) {
+    const previousRecord = reportRecords.get(entry.id);
+    const previousCard = cards.get(entry.id);
     const record = document.querySelector('#manual-finding-template').content.firstElementChild.cloneNode(true);
     const card = document.querySelector('#manual-board-card-template').content.firstElementChild.cloneNode(true);
-    const number = `#${++manualCount}`;
+    const number = entry.number ? '#' + entry.number : 'Черновик';
     record.id = entry.id;
     record.dataset.devices = entry.devices.join(' ');
     record.querySelector('.case-title').textContent = entry.title;
@@ -1149,70 +1202,90 @@ openHash();
     const screenshots = record.querySelector('.finding-gallery');
     for (const device of entry.devices) {
       const source = entry.screenshots?.[device];
-      if (typeof source === 'string' && /^data:image\/(webp|png|jpeg);base64,/.test(source)) {
-        screenshots.append(manualScreenshot(device, source));
-      }
+      const sources = entry.number
+        ? source
+        : typeof source === 'string' && /^data:image\/(webp|png|jpeg);base64,/.test(source) ? [source] : [];
+      if (sources?.length) screenshots.append(manualScreenshot(device, sources));
     }
     screenshots.hidden = !screenshots.firstElementChild;
+    const reference = record.querySelector('.ref a');
+    if (entry.number) {
+      record.dataset.published = 'true';
+      reference.href = issueRoot + entry.number;
+      reference.textContent = 'Открыть в GitHub';
+    } else {
+      reference.href = issueUrl(entry);
+      reference.textContent = 'Опубликовать черновик в GitHub';
+    }
     card.dataset.card = entry.id;
-    card.querySelector('a').href = `#${entry.id}`;
+    card.querySelector('a').href = '#' + entry.id;
     card.querySelector('.board-card-title').textContent = entry.title;
-    card.querySelector('.board-grip').setAttribute('aria-label', `Действия с правкой ${number}`);
+    card.querySelector('.board-grip').setAttribute('aria-label', 'Действия с правкой ' + number);
     for (const item of [record, card]) {
       item.querySelector('.case-key').textContent = number;
       const pill = item.querySelector('.pill');
       pill.classList.add(entry.priority);
       pill.textContent = priorityNames.get(entry.priority);
     }
-    findingsList.append(record);
-    findings.push(record);
+    if (previousRecord) {
+      record.open = previousRecord.open;
+      previousRecord.replaceWith(record);
+      findings[findings.indexOf(previousRecord)] = record;
+      previousCard.replaceWith(card);
+    } else {
+      findingsList.append(record);
+      findings.push(record);
+      columns.get('todo').list.prepend(card);
+    }
     reportRecords.set(record.id, record);
-    columns.get('todo').list.prepend(card);
     cards.set(record.id, card);
-    return card;
   }
 
   function restoreManualFindings() {
     try {
-      const entries = [];
       for (const key of Object.keys(localStorage).filter(key => key.startsWith(manualPrefix))) {
         try {
           const entry = JSON.parse(localStorage.getItem(key));
-          if (entry?.id !== key.slice(manualPrefix.length) || !/^manual-[a-f0-9-]+$/.test(entry.id)) continue;
+          if (entry?.id !== key.slice(manualPrefix.length) || !/^manual-[a-f0-9-]{36}$/.test(entry.id)) continue;
           if (typeof entry.title !== 'string' || typeof entry.description !== 'string' || !priorityNames.has(entry.priority)) continue;
           if (!Array.isArray(entry.devices) || !entry.devices.length || !entry.devices.every(device => deviceNames.has(device))) continue;
-          entries.push(entry);
+          registerManual(entry);
         } catch {
-          // A damaged local entry should not prevent the other cards from opening.
+          // A damaged local draft should not prevent the other cards from opening.
         }
       }
-      entries.sort((a, b) => a.created - b.created || a.id.localeCompare(b.id));
-      for (const entry of entries) registerManual(entry);
     } catch {
       storageNotice.hidden = false;
     }
   }
 
-  function manualDevices() {
-    return manualDevice.value === 'both' ? [...deviceNames.keys()] : [manualDevice.value].filter(device => deviceNames.has(device));
-  }
-
-  function updateUploads() {
-    const devices = manualDevices();
-    for (const label of uploads) label.hidden = !devices.includes(label.dataset.uploadDevice);
-  }
-
-  async function encodeScreenshot(file) {
-    const bitmap = await createImageBitmap(file);
+  async function loadSharedFindings() {
+    if (loadingShared || Date.now() - lastSharedLoad < 4000) return;
+    loadingShared = true;
+    lastSharedLoad = Date.now();
     try {
-      const scale = Math.min(1, 1600 / bitmap.width, 2400 / bitmap.height);
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-      canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      return canvas.toDataURL('image/webp', .84);
+      const entries = [];
+      let page = 1;
+      let items;
+      do {
+        const response = await fetch(issueFeed + '?state=all&per_page=100&page=' + page++, {cache:'no-cache', signal:AbortSignal.timeout(12000)});
+        if (!response.ok) throw new Error('GitHub Issues request failed');
+        items = await response.json();
+        for (const item of items) {
+          const entry = fromIssue(item);
+          if (entry && !reportRecords.get(entry.id)?.dataset.published) entries.push(entry);
+        }
+      } while (items.length === 100);
+      sharedError.hidden = true;
+      if (!entries.length) return;
+      for (const entry of entries.reverse()) registerManual(entry);
+      restoreSavedBoard();
+      refreshVisibility();
+      if (location.hash.startsWith('#manual-')) openHash();
+    } catch {
+      sharedError.hidden = false;
     } finally {
-      bitmap.close();
+      loadingShared = false;
     }
   }
 
@@ -1220,67 +1293,29 @@ openHash();
     manualForm.reset();
     manualError.hidden = true;
     if (boardView.hidden && deviceFilter !== 'all') manualDevice.value = deviceFilter;
-    updateUploads();
     manualDialog.showModal();
   });
-  manualDevice.addEventListener('change', updateUploads);
   manualCancel.addEventListener('click', () => manualDialog.close());
-  manualDialog.addEventListener('cancel', event => {
-    if (manualSubmit.disabled) event.preventDefault();
-  });
-  manualForm.addEventListener('submit', async event => {
+  manualForm.addEventListener('submit', event => {
     event.preventDefault();
-    if (manualSubmit.disabled) return;
     const values = new FormData(manualForm);
     const title = values.get('title').trim();
     const description = values.get('description').trim();
-    const devices = manualDevices();
+    const devices = manualDevice.value === 'both' ? [...deviceNames.keys()] : [manualDevice.value].filter(device => deviceNames.has(device));
     const priority = values.get('priority');
     if (!title || !description || !devices.length) {
       manualError.textContent = 'Введи название и описание, выбери экран.';
       manualError.hidden = false;
       return;
     }
-    manualError.hidden = true;
-    manualSubmit.disabled = true;
-    manualCancel.disabled = true;
-    try {
-      const screenshots = {};
-      for (const device of devices) {
-        const file = values.get(device);
-        if (file?.size) {
-          try {
-            screenshots[device] = await encodeScreenshot(file);
-          } catch {
-            throw new Error('Этот снимок не открывается. Выбери другой файл.');
-          }
-        }
-      }
-      const id = `manual-${crypto.randomUUID()}`;
-      const entry = {id, title, description, devices, priority, screenshots, created: Date.now()};
-      try {
-        localStorage.setItem(manualPrefix + id, JSON.stringify(entry));
-      } catch (error) {
-        if (error.name === 'QuotaExceededError') throw new Error('В браузере закончилось место. Попробуй сохранить правку без скриншотов.');
-        throw new Error('Браузер не разрешил сохранение правки.');
-      }
-      const card = registerManual(entry);
-      refreshVisibility();
-      manualDialog.close();
-      announcement.textContent = `Правка ${cardNumber(card)} добавлена.`;
-      if (boardView.hidden) {
-        location.hash = id;
-      } else {
-        card.scrollIntoView({block:'nearest', inline:'nearest'});
-        card.querySelector('a').focus({preventScroll:true});
-      }
-    } catch (error) {
-      manualError.textContent = error.message;
+    const url = issueUrl({title, description, devices, priority});
+    if (url.length > 7800) {
+      manualError.textContent = 'Сократи описание для перехода. Полный текст можно дописать в GitHub.';
       manualError.hidden = false;
-    } finally {
-      manualSubmit.disabled = false;
-      manualCancel.disabled = false;
+      return;
     }
+    window.open(url, '_blank', 'noopener,noreferrer');
+    manualDialog.close();
   });
 
   function restoreSavedBoard() {
@@ -1518,6 +1553,10 @@ openHash();
   restoreSavedBoard();
   refreshVisibility();
   openHash();
+  loadSharedFindings();
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) loadSharedFindings();
+  });
 })();
 
 </script>
