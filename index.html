@@ -502,7 +502,6 @@ dialog img { display: block; max-width: 100%; height: auto; margin: auto; border
   font-weight: 400;
 }
 #manual-finding-form textarea { resize: vertical; }
-#manual-auth-hint { margin-top: 4px; font-size: 13px; }
 #manual-finding-form .manual-upload p { margin-bottom: 4px; color: var(--ink); font-weight: 650; }
 .manual-paste {
   display: grid;
@@ -939,7 +938,8 @@ dialog img { display: block; max-width: 100%; height: auto; margin: auto; border
 <dialog id="manual-finding-dialog" aria-labelledby="manual-finding-title">
   <form id="manual-finding-form">
     <h2 id="manual-finding-title">Добавить правку</h2>
-    <p>Опубликованную правку и скриншоты увидят все, кто откроет отчёт.</p>
+    <p id="manual-publication-copy">Опубликованную правку и скриншоты увидят все, кто откроет отчёт.</p>
+    <p id="manual-publication-notice" role="status" hidden>Публикация пока недоступна. Черновик сохранится со скриншотами в этом браузере.</p>
     <label>Название<input name="title" required maxlength="140" autofocus></label>
     <div class="manual-fields">
       <label>Экран<select name="device" required><option value="">Выбрать экран</option><option value="desktop">Десктоп</option><option value="mobile">Мобильная версия</option><option value="both">Оба экрана</option></select></label>
@@ -947,12 +947,8 @@ dialog img { display: block; max-width: 100%; height: auto; margin: auto; border
     </div>
     <label>Описание<textarea name="description" required maxlength="4000" rows="4"></textarea></label>
     <div class="manual-upload" data-upload-device="desktop" hidden><p id="paste-label-desktop">Скриншот · десктоп</p><div class="manual-paste" tabindex="0" role="group" aria-labelledby="paste-label-desktop" aria-describedby="paste-hint-desktop"><span id="paste-hint-desktop">Нажми сюда и вставь через Ctrl+V</span><img alt="Вставленный скриншот" hidden></div><button type="button" class="clear-screenshot" hidden>Убрать скриншот</button></div><div class="manual-upload" data-upload-device="mobile" hidden><p id="paste-label-mobile">Скриншот · мобильная версия</p><div class="manual-paste" tabindex="0" role="group" aria-labelledby="paste-label-mobile" aria-describedby="paste-hint-mobile"><span id="paste-hint-mobile">Нажми сюда и вставь через Ctrl+V</span><img alt="Вставленный скриншот" hidden></div><button type="button" class="clear-screenshot" hidden>Убрать скриншот</button></div>
-    <div id="manual-auth">
-      <label>Токен редактора GitHub<input type="password" name="token" autocomplete="off" spellcheck="false" aria-describedby="manual-auth-hint"></label>
-      <p id="manual-auth-hint">Нужны права записи Issues и Contents в Pequodd/tusa-qa. Токен действует в форме до перезагрузки страницы.</p>
-    </div>
     <p id="manual-finding-error" role="alert" hidden></p>
-    <div class="manual-actions"><button type="button" id="manual-finding-cancel">Отмена</button><button type="submit">Опубликовать правку</button></div>
+    <div class="manual-actions"><button type="button" id="manual-finding-cancel">Отмена</button><button type="submit" disabled>Опубликовать правку</button></div>
   </form>
 </dialog>
 <template id="manual-finding-template"><details class="record"><summary><span class="case-key"></span><span class="case-title"></span><span class="pill"></span></summary>
@@ -1102,7 +1098,7 @@ openHash();
   const issueRoot = 'https://github.com/Pequodd/tusa-qa/issues/';
   const githubRepo = 'https://api.github.com/repos/Pequodd/tusa-qa';
   const issueFeed = githubRepo + '/issues';
-  const mediaBranch = 'report-media';
+  const publisher = 'https://tusa-qa-publisher.cherrygnome2051.chatgpt.site';
   const track = boardView.querySelector('.board-columns');
   const cards = new Map([...track.querySelectorAll('[data-card]')].map(card => [card.dataset.card, card]));
   const reportRecords = new Map([...reportView.querySelectorAll('.record')].map(record => [record.id, record]));
@@ -1127,10 +1123,10 @@ openHash();
   const manualDialog = document.querySelector('#manual-finding-dialog');
   const manualForm = document.querySelector('#manual-finding-form');
   const manualError = document.querySelector('#manual-finding-error');
+  const publicationNotice = document.querySelector('#manual-publication-notice');
+  const publicationCopy = document.querySelector('#manual-publication-copy');
   const manualCancel = document.querySelector('#manual-finding-cancel');
   const manualDevice = manualForm.elements.namedItem('device');
-  const manualAuth = document.querySelector('#manual-auth');
-  const manualToken = manualForm.elements.namedItem('token');
   const manualSubmit = manualForm.querySelector('[type="submit"]');
   const uploads = [...manualForm.querySelectorAll('[data-upload-device]')];
   const pendingScreenshots = new Map();
@@ -1144,22 +1140,14 @@ openHash();
   let recentDrag = null;
   let lastSharedLoad = 0;
   let loadingShared = false;
-  let editorToken = '';
+  let publisherBot = '';
+  let publisherReady;
+  let checkingPublisher;
+  let manualBusy = false;
   let publication = null;
 
   const columnOf = card => card.closest('.board-column').dataset.column;
   const cardNumber = card => card.querySelector('.case-key').textContent;
-
-  function issueBody(entry, screenshots, submission) {
-    const metadata = {devices: entry.devices, priority: entry.priority, submission};
-    if (entry.id) metadata.draft = entry.id;
-    const lines = ['<!-- tusa-qa:v1 ' + JSON.stringify(metadata) + ' -->', '', entry.description];
-    for (const device of entry.devices) {
-      const image = screenshots[device];
-      if (image) lines.push('', '### Скриншоты · ' + deviceNames.get(device), '', '![Скриншот](' + image + ')');
-    }
-    return lines.join('\n');
-  }
 
   function imageLinks(text) {
     const images = new Set();
@@ -1174,7 +1162,9 @@ openHash();
   }
 
   function fromIssue(issue) {
-    if (issue.pull_request || !['OWNER', 'MEMBER', 'COLLABORATOR'].includes(issue.author_association)) return null;
+    if (issue.pull_request) return null;
+    const trustedBot = Boolean(publisherBot) && issue.user?.type === 'Bot' && issue.user.login === publisherBot;
+    if (!trustedBot && !['OWNER', 'MEMBER', 'COLLABORATOR'].includes(issue.author_association)) return null;
     if (!Number.isInteger(issue.number) || typeof issue.title !== 'string' || typeof issue.body !== 'string') return null;
     const marker = issue.body.match(/^<!-- tusa-qa:v1 ([^\r\n]+) -->\s*/);
     if (!marker) return null;
@@ -1254,7 +1244,7 @@ openHash();
       const publish = document.createElement('button');
       publish.type = 'button';
       publish.className = 'manual-publish-draft';
-      publish.textContent = 'Опубликовать черновик';
+      publish.textContent = 'Открыть черновик';
       publish.addEventListener('click', () => openManualDialog(entry));
       reference.replaceWith(publish);
     }
@@ -1300,10 +1290,41 @@ openHash();
     }
   }
 
+  function updatePublicationUI() {
+    if (manualBusy) return;
+    const unavailable = publisherReady === false;
+    manualSubmit.disabled = publisherReady === undefined;
+    manualSubmit.textContent = unavailable ? 'Сохранить черновик' : 'Опубликовать правку';
+    publicationNotice.hidden = !unavailable;
+    publicationCopy.hidden = unavailable;
+  }
+
+  function checkPublisher() {
+    if (checkingPublisher) return checkingPublisher;
+    if (location.origin !== 'https://pequodd.github.io') {
+      publisherReady = false;
+      updatePublicationUI();
+      return Promise.resolve();
+    }
+    checkingPublisher = fetch(publisher + '/status', {signal: AbortSignal.timeout(3500)})
+      .then(response => response.ok ? response.json() : null)
+      .then(result => {
+        publisherReady = result?.ready === true && typeof result.bot === 'string';
+        if (publisherReady) publisherBot = result.bot;
+      })
+      .catch(() => { publisherReady = false; })
+      .finally(() => {
+        checkingPublisher = undefined;
+        updatePublicationUI();
+      });
+    return checkingPublisher;
+  }
+
   async function loadSharedFindings() {
     if (loadingShared || Date.now() - lastSharedLoad < 4000) return;
     loadingShared = true;
     lastSharedLoad = Date.now();
+    const botLookup = publisherBot ? Promise.resolve() : checkPublisher();
     try {
       const entries = [];
       let page = 1;
@@ -1312,6 +1333,7 @@ openHash();
         const response = await fetch(issueFeed + '?state=all&per_page=100&page=' + page++, {cache:'no-cache', signal:AbortSignal.timeout(12000)});
         if (!response.ok) throw new Error('GitHub Issues request failed');
         items = await response.json();
+        await botLookup;
         for (const item of items) {
           const entry = fromIssue(item);
           if (entry && !reportRecords.get(entry.id)?.dataset.published) entries.push(entry);
@@ -1382,86 +1404,29 @@ openHash();
     }
   }
 
-  async function githubRequest(route, token, method = 'GET', body) {
-    const response = await fetch(githubRepo + route, {
-      method,
-      cache: 'no-cache',
+  async function publishIssue(entry, attempt, images) {
+    if (location.origin !== 'https://pequodd.github.io') {
+      throw new Error('Чтобы опубликовать правку, открой отчёт на GitHub Pages.');
+    }
+    const response = await fetch(publisher + '/findings', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({...entry, draft: entry.id ?? 'manual-' + attempt.id, submission: attempt.id, images}),
       credentials: 'omit',
       redirect: 'error',
-      signal: AbortSignal.timeout(20000),
-      headers: {
-        Accept: 'application/vnd.github+json',
-        Authorization: 'Bearer ' + token,
-        'X-GitHub-Api-Version': '2022-11-28',
-        'Content-Type': 'application/json',
-      },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: AbortSignal.timeout(90000),
     });
+    const result = await response.json();
     if (!response.ok) {
-      const error = new Error('GitHub вернул ошибку ' + response.status + '. Проверь права токена и повтори публикацию.');
-      error.status = response.status;
-      throw error;
+      throw Object.assign(new Error(result.error || 'Не удалось опубликовать правку.'), {status: response.status});
     }
-    return response.json();
-  }
-
-  async function uploadScreenshots(attempt, images, token) {
-    const signature = JSON.stringify(images);
-    if (attempt.upload?.signature === signature) return attempt.upload.urls;
-    const files = await Promise.all(Object.entries(images).map(async ([device, data]) => {
-      const encoded = data.match(/^data:image\/(webp|png|jpeg);base64,(.+)$/);
-      if (!encoded) throw new Error('Формат скриншота не распознан.');
-      const blob = await githubRequest('/git/blobs', token, 'POST', {content: encoded[2], encoding: 'base64'});
-      return {device, path: 'manual-screenshots/' + attempt.id + '/' + device + '.' + encoded[1], mode: '100644', type: 'blob', sha: blob.sha};
-    }));
-    if (!files.length) return {};
-    for (let tries = 0; tries < 3; tries++) {
-      const ref = await githubRequest('/git/ref/heads/' + mediaBranch, token);
-      const head = await githubRequest('/git/commits/' + ref.object.sha, token);
-      const tree = await githubRequest('/git/trees', token, 'POST', {
-        base_tree: head.tree.sha,
-        tree: files.map(({device, ...file}) => file),
-      });
-      const commit = await githubRequest('/git/commits', token, 'POST', {
-        message: 'Add screenshots for a QA finding',
-        tree: tree.sha,
-        parents: [ref.object.sha],
-      });
-      try {
-        await githubRequest('/git/refs/heads/' + mediaBranch, token, 'PATCH', {sha: commit.sha, force: false});
-        const urls = Object.fromEntries(files.map(file => [
-          file.device,
-          'https://raw.githubusercontent.com/Pequodd/tusa-qa/' + commit.sha + '/' + file.path,
-        ]));
-        attempt.upload = {signature, urls};
-        return urls;
-      } catch (error) {
-        if (![409, 422].includes(error.status) || tries === 2) throw error;
-      }
-    }
-  }
-
-  async function publishIssue(entry, attempt, images, token) {
-    if (attempt.issueRequested) {
-      const recent = await githubRequest('/issues?state=all&sort=created&per_page=100', token);
-      const marker = '"submission":"' + attempt.id + '"';
-      const previous = recent.find(issue => !issue.pull_request && issue.body?.startsWith('<!-- tusa-qa:v1 ') && issue.body.split('\n', 1)[0].includes(marker));
-      if (previous) return previous;
-    }
-    if (editorToken !== token) {
-      const repo = await githubRequest('', token);
-      if (!repo.permissions?.push) throw new Error('Токену нужен доступ на запись в Pequodd/tusa-qa.');
-    }
-    const screenshots = await uploadScreenshots(attempt, images, token);
-    attempt.issueRequested = true;
-    return githubRequest('/issues', token, 'POST', {title: entry.title, body: issueBody(entry, screenshots, attempt.id)});
+    return result;
   }
 
   function openManualDialog(draft = null) {
     manualForm.reset();
-    manualAuth.hidden = Boolean(editorToken);
     manualError.hidden = true;
-    publication = {id: crypto.randomUUID(), draft: draft?.id};
+    publication = {id: draft?.id.slice(7) ?? crypto.randomUUID(), draft: draft?.id};
     if (draft) {
       manualForm.elements.namedItem('title').value = draft.title;
       manualForm.elements.namedItem('description').value = draft.description;
@@ -1476,18 +1441,19 @@ openHash();
       setPreview(label, data);
     }
     updateUploads();
+    updatePublicationUI();
     manualDialog.showModal();
+    if (!publisherReady) void checkPublisher();
   }
 
   for (const button of document.querySelectorAll('.add-finding')) button.addEventListener('click', () => openManualDialog());
   manualCancel.addEventListener('click', () => manualDialog.close());
   manualDevice.addEventListener('change', updateUploads);
   manualDialog.addEventListener('cancel', event => {
-    if (manualSubmit.disabled) event.preventDefault();
+    if (manualBusy) event.preventDefault();
   });
   manualDialog.addEventListener('close', () => {
     if (manualDialog.open) return;
-    manualToken.value = '';
     for (const label of uploads) setPreview(label, null);
   });
   for (const label of uploads) label.querySelector('.clear-screenshot').addEventListener('click', () => {
@@ -1498,7 +1464,7 @@ openHash();
     const file = [...(event.clipboardData?.files ?? [])].find(item => item.type.startsWith('image/'));
     if (!file) return;
     event.preventDefault();
-    if (manualSubmit.disabled) return;
+    if (manualBusy) return;
     const devices = selectedDevices();
     const selected = event.target.closest('[data-upload-device]')?.dataset.uploadDevice;
     const target = devices.includes(selected) ? selected : devices.length === 1 ? devices[0] : null;
@@ -1512,27 +1478,23 @@ openHash();
 
   manualForm.addEventListener('submit', async event => {
     event.preventDefault();
-    if (manualSubmit.disabled) return;
+    if (manualBusy || publisherReady === undefined) return;
     const values = new FormData(manualForm);
     const title = values.get('title').trim();
     const description = values.get('description').trim();
     const devices = selectedDevices();
     const priority = values.get('priority');
-    const token = editorToken || manualToken.value.trim();
     if (!title || !description || !devices.length) {
       showError('Введи название и описание, выбери экран.');
       return;
     }
-    if (!token) {
-      showError('Введи токен редактора GitHub.');
-      manualToken.focus();
-      return;
-    }
     const attempt = publication;
+    const asDraft = !publisherReady;
     const controls = [...manualForm.querySelectorAll('input, select, textarea, button')];
+    manualBusy = true;
     for (const control of controls) control.disabled = true;
     manualError.hidden = true;
-    manualSubmit.textContent = 'Публикую…';
+    manualSubmit.textContent = asDraft ? 'Сохраняю…' : 'Публикую…';
     const entry = {id: attempt.draft, title, description, devices, priority};
     try {
       const images = {};
@@ -1540,32 +1502,46 @@ openHash();
         const screenshot = pendingScreenshots.get(device);
         if (screenshot) images[device] = screenshot.data || await prepareImage(screenshot.file);
       }
-      const issue = await publishIssue(entry, attempt, images, token);
-      const published = fromIssue(issue);
-      if (!published) throw new Error('Карточка создана в GitHub. Обнови отчёт, чтобы увидеть её.');
-      editorToken = token;
-      registerManual(published);
+      let saved;
+      if (asDraft) {
+        saved = {...entry, id: attempt.draft ?? 'manual-' + attempt.id, screenshots: images};
+        try {
+          localStorage.setItem(manualPrefix + saved.id, JSON.stringify(saved));
+        } catch {
+          throw new Error('Не хватило места для черновика. Уменьши размер скриншотов или освободи место в браузере.');
+        }
+      } else {
+        const result = await publishIssue(entry, attempt, images);
+        publisherBot = result.bot;
+        saved = fromIssue(result.issue);
+        if (!saved) throw new Error('Карточка создана в GitHub. Обнови отчёт, чтобы увидеть её.');
+        if (attempt.draft) {
+          try { localStorage.removeItem(manualPrefix + attempt.draft); }
+          catch { storageNotice.hidden = false; }
+        }
+      }
+      registerManual(saved);
       refreshVisibility();
       manualDialog.close();
-      announcement.textContent = 'Правка #' + published.number + ' опубликована.';
+      announcement.textContent = asDraft ? 'Черновик сохранён в этом браузере.' : 'Правка #' + saved.number + ' опубликована.';
       if (boardView.hidden) {
-        location.hash = published.id;
+        location.hash = saved.id;
       } else {
-        const card = cards.get(published.id);
+        const card = cards.get(saved.id);
         card.scrollIntoView({block:'nearest', inline:'nearest'});
         card.querySelector('a').focus({preventScroll:true});
       }
     } catch (error) {
-      if ([401, 403].includes(error.status)) {
-        editorToken = '';
-        manualAuth.hidden = false;
+      if (!asDraft && (error.status === 503 || error.name === 'TimeoutError' || error.name === 'TypeError')) {
+        publisherReady = false;
       }
       showError(error.name === 'TimeoutError' || error.name === 'TypeError'
-        ? 'Связь с GitHub прервалась. Повтори публикацию.'
+        ? 'Связь с сервером прервалась. Можно сохранить черновик и вернуться к публикации позже.'
         : error.message);
     } finally {
+      manualBusy = false;
       for (const control of controls) control.disabled = false;
-      manualSubmit.textContent = 'Опубликовать правку';
+      updatePublicationUI();
     }
   });
 
