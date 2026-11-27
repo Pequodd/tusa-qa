@@ -124,6 +124,20 @@ h2 {
   line-height: 1.06;
 }
 .section-heading p { margin-top: 8px; color: var(--muted); }
+.finding-heading { display: flex; max-width: none; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.add-finding {
+  min-height: 44px;
+  padding: 7px 15px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 650;
+}
+.add-finding:hover { background: #004b9d; }
+.board-heading:has(.add-finding) { flex-wrap: wrap; align-items: center; }
+.board-heading .add-finding { margin-inline-start: auto; }
 .device-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
 .device-filters button {
   min-height: 44px;
@@ -463,6 +477,38 @@ dialog button {
 dialog form p { font-size: 14px; font-weight: 650; }
 .viewer-image { padding: 9px; background: #e8ebf0; }
 dialog img { display: block; max-width: 100%; height: auto; margin: auto; border-radius: 9px; }
+#manual-finding-dialog { width: 520px; }
+#manual-finding-form {
+  position: static;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 13px;
+  min-width: 0;
+  padding: clamp(16px, 4vw, 26px);
+  border: 0;
+}
+#manual-finding-form h2 { font-size: 27px; }
+#manual-finding-form p { color: var(--muted); font-weight: 400; }
+#manual-finding-form label { display: grid; gap: 4px; min-width: 0; font-size: 14px; font-weight: 650; }
+#manual-finding-form input, #manual-finding-form select, #manual-finding-form textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--canvas);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 400;
+}
+#manual-finding-form textarea { resize: vertical; }
+#manual-finding-form input[type="file"] { font-size: 13px; }
+.manual-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 8px; }
+.manual-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.manual-actions button[type="submit"] { background: var(--blue); color: #fff; }
+.manual-actions button:disabled { opacity: .65; cursor: default; }
+#manual-finding-form #manual-finding-error { color: #a12d3a; }
+.manual-description { white-space: pre-wrap; }
 
 @media (max-width: 1050px) {
   .frame { width: min(calc(100% - 60px), var(--frame-width)); }
@@ -545,7 +591,7 @@ dialog img { display: block; max-width: 100%; height: auto; margin: auto; border
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; } }
 @media print {
-  .jump, .controls, .device-filters, .board-jumps, .board-grip, dialog { display: none; }
+  .jump, .controls, .device-filters, .add-finding, .board-jumps, .board-grip, dialog { display: none; }
   body { background: #fff; }
   .mast { padding-block: 22px; }
   .frame { width: 100%; }
@@ -564,7 +610,7 @@ dialog img { display: block; max-width: 100%; height: auto; margin: auto; border
   <div class="metrics" role="group" aria-labelledby="stats-label"><a href="#regression" class="metric ok" data-filter="ok"><strong>27</strong><span>Исправлено полностью</span></a><a href="#regression" class="metric part" data-filter="part"><strong>14</strong><span>Исправлено частично</span></a><a href="#findings" class="metric new-count"><strong>19</strong><span>Новые правки</span></a></div>
 </header>
 <main class="frame" id="report">
-<section id="findings"><div class="section-heading"><h2>Новые правки</h2></div>
+<section id="findings"><div class="section-heading finding-heading"><h2>Новые правки</h2><button class="add-finding" type="button">Добавить правку</button></div>
 <div class="device-filters" role="group" aria-label="Новые правки по экрану">
 <button type="button" data-device="all" aria-controls="findings-list" aria-pressed="true">Все</button>
 <button type="button" data-device="desktop" aria-controls="findings-list" aria-pressed="false">Десктоп</button><button type="button" data-device="mobile" aria-controls="findings-list" aria-pressed="false">Мобильная версия</button>
@@ -860,7 +906,7 @@ dialog img { display: block; max-width: 100%; height: auto; margin: auto; border
       <details class="original"><summary>Как было в документе</summary><div><p>20. Висящие предлоги и союзы</p><p>Прошёлся по всем страницам ЛК. Короткие слова надо приклеивать к следующему через неразрывный пробел ( ). Лучше сразу сделать это автоматически для всех текстов, а не руками.</p><div class="source-table"><table><tr><th>Страница</th><th>Где висит</th><th>Где видно</th></tr><tr><td>Главная ЛК</td><td>Ты ещё не в / клубе</td><td>мобилка</td></tr><tr><td>Главная ЛК</td><td>события клуба и / консьерж</td><td>все ширины</td></tr><tr><td>Главная ЛК</td><td>с / подпиской</td><td>мобилка</td></tr><tr><td>Главная ЛК</td><td>запись: 1 / событие», цифра должна стоять на одной строке со словом</td><td>мобилка</td></tr><tr><td>Главная ЛК</td><td>заказы из / маркетплейса</td><td>мобилка</td></tr><tr><td>Главная ЛК</td><td>Акварель при / свечах, заголовок события</td><td>все ширины</td></tr><tr><td>Главная ЛК</td><td>первая работа в / мастерской», правая колонка</td><td>десктоп</td></tr><tr><td>Мои заказы, Анкета</td><td>Следи за / тем»</td><td>мобилка</td></tr><tr><td>Анкета</td><td>консьерж подбирает под / тебя</td><td>мобилка</td></tr><tr><td>Мои события</td><td>Выбери событие в / анонсах</td><td>мобилка</td></tr><tr><td>Настройки</td><td>покупок на / маркетплейсе</td><td>мобилка</td></tr><tr><td>Настройки</td><td>в подзаголовке висит с</td><td>1280</td></tr><tr><td>Поддержка</td><td>Мы / отвечаем», «без / скриптов</td><td>все ширины</td></tr><tr><td>Поддержка, Консьерж</td><td>обычно в / течение дня» в шапке чата</td><td>мобилка</td></tr><tr><td>Уведомления</td><td>форматы под / тебя», «события и / форматы</td><td>десктоп, 1280</td></tr></table></div><div class="source-table"><table><tr><th>Главная ЛК, мобилка</th><th>Главная ЛК, мобилка</th></tr></table></div></div></details></div></details></div></section></section>
 </main>
 <main class="frame board" id="kanban" aria-labelledby="kanban-title" hidden>
-<div class="board-heading"><h1 id="kanban-title" tabindex="-1">Канбан</h1><p id="board-total">Всего 60</p></div>
+<div class="board-heading"><h1 id="kanban-title" tabindex="-1">Канбан</h1><p id="board-total">Всего 60</p><button class="add-finding" type="button">Добавить правку</button></div>
 <details class="board-archive" id="board-archive" hidden><summary>Удалённые <span id="archive-count">0</span></summary><ul id="archive-list" role="list"></ul></details>
 <p id="board-storage" class="board-storage" hidden>Браузер не сохраняет изменения для этого файла.</p>
 <nav class="board-jumps" aria-label="Колонки канбана"><a href="#kanban-todo" data-column="todo">Нужно поправить <span data-count>19</span></a><a href="#kanban-working" data-column="working">В работе <span data-count>0</span></a><a href="#kanban-partial" data-column="partial">Частично готово <span data-count>14</span></a><a href="#kanban-done" data-column="done">Готово <span data-count>27</span></a></nav>
@@ -868,6 +914,24 @@ dialog img { display: block; max-width: 100%; height: auto; margin: auto; border
 </main>
 <dialog id="board-actions" aria-labelledby="board-actions-title"><form method="dialog"><p id="board-actions-title">Действия с правкой</p><button autofocus>Закрыть</button></form><div class="board-action-body"><p id="board-action-card"></p><h2 id="board-destinations-title">Переместить в</h2><div class="board-destinations" role="group" aria-labelledby="board-destinations-title"><button type="button" data-destination="todo">Нужно поправить</button><button type="button" data-destination="working">В работе</button><button type="button" data-destination="partial">Частично готово</button><button type="button" data-destination="done">Готово</button></div></div></dialog>
 <p id="board-announcement" class="visually-hidden" aria-live="polite"></p>
+<dialog id="manual-finding-dialog" aria-labelledby="manual-finding-title">
+  <form id="manual-finding-form">
+    <h2 id="manual-finding-title">Добавить правку</h2>
+    <p>Правка сохранится в этом браузере.</p>
+    <label>Название<input name="title" required maxlength="140" autofocus></label>
+    <div class="manual-fields">
+      <label>Экран<select name="device" required><option value="">Выбрать экран</option><option value="desktop">Десктоп</option><option value="mobile">Мобильная версия</option><option value="both">Оба экрана</option></select></label>
+      <label>Важность<select name="priority"><option value="p1">Важно</option><option value="p2" selected>Может подождать</option><option value="p3">Текстовые правки</option></select></label>
+    </div>
+    <label>Описание<textarea name="description" required maxlength="4000" rows="4"></textarea></label>
+    <label class="manual-upload" data-upload-device="desktop" hidden>Скриншот · десктоп<input type="file" name="desktop" accept="image/png,image/jpeg,image/webp,image/gif,image/avif"></label><label class="manual-upload" data-upload-device="mobile" hidden>Скриншот · мобильная версия<input type="file" name="mobile" accept="image/png,image/jpeg,image/webp,image/gif,image/avif"></label>
+    <p id="manual-finding-error" role="alert" hidden></p>
+    <div class="manual-actions"><button type="button" id="manual-finding-cancel">Отмена</button><button type="submit">Добавить правку</button></div>
+  </form>
+</dialog>
+<template id="manual-finding-template"><details class="record"><summary><span class="case-key"></span><span class="case-title"></span><span class="pill"></span></summary>
+  <div class="record-body"><dl class="result"><div><dt>Описание</dt><dd class="manual-description"></dd></div></dl><div class="finding-gallery" hidden></div></div></details></template>
+<template id="manual-board-card-template"><li class="board-card"><a class="board-card-link" draggable="false"><span class="case-key"></span><span class="pill"></span><span class="board-card-title"></span></a><button class="board-grip" type="button" aria-haspopup="dialog" title="Перетащить или открыть действия"><span aria-hidden="true"></span></button></li></template>
 <dialog id="viewer" aria-label="Просмотр скриншота"><form method="dialog"><p id="caption"></p><button aria-label="Закрыть изображение" autofocus>Закрыть</button></form><div class="viewer-image"><img alt="Скриншот для проверки"></div></dialog>
 
 <script>
@@ -893,7 +957,6 @@ const expand=document.querySelector('#expand');
 const mainPanel=document.querySelector('#viewer');
 const enlargedImage=mainPanel.querySelector('img');
 const caption=document.querySelector('#caption');
-const evidenceButtons=[...document.querySelectorAll('[data-asset]')];
 
 function imageSrc(button){
   return button.querySelector('img').getAttribute('src')??'data:image/jpeg;base64,'+assets[button.dataset.asset][0];
@@ -948,7 +1011,9 @@ for(const record of document.querySelectorAll('.record')){
   if(record.open)loadThumbnails(record);
   record.addEventListener('toggle',()=>{if(record.open)loadThumbnails(record);filter();});
 }
-for(const button of evidenceButtons)button.addEventListener('click',()=>{
+reportView.addEventListener('click',event=>{
+  const button=event.target.closest('.evidence');
+  if(!button)return;
   enlargedImage.src=imageSrc(button);
   const deviceLabel=button.closest('[data-evidence-device]')?.getAttribute('aria-label');
   caption.textContent=[deviceLabel,button.querySelector('span').textContent].filter(Boolean).join(' · ');
@@ -1007,6 +1072,7 @@ openHash();
 
 (() => {
   const storageKey = 'tusa-qa-kanban-v1';
+  const manualPrefix = 'tusa-qa-manual-v1:';
   const track = boardView.querySelector('.board-columns');
   const cards = new Map([...track.querySelectorAll('[data-card]')].map(card => [card.dataset.card, card]));
   const reportRecords = new Map([...reportView.querySelectorAll('.record')].map(record => [record.id, record]));
@@ -1028,13 +1094,194 @@ openHash();
   const actionDialog = document.querySelector('#board-actions');
   const actionCardTitle = document.querySelector('#board-action-card');
   const destinations = [...actionDialog.querySelectorAll('[data-destination]')];
+  const manualDialog = document.querySelector('#manual-finding-dialog');
+  const manualForm = document.querySelector('#manual-finding-form');
+  const manualError = document.querySelector('#manual-finding-error');
+  const manualSubmit = manualForm.querySelector('[type="submit"]');
+  const manualCancel = document.querySelector('#manual-finding-cancel');
+  const manualDevice = manualForm.elements.namedItem('device');
+  const uploads = [...manualForm.querySelectorAll('[data-upload-device]')];
+  const deviceNames = new Map([...manualDevice.options].slice(1, -1).map(option => [option.value, option.textContent]));
+  const priorityNames = new Map([...manualForm.elements.namedItem('priority').options].map(option => [option.value, option.textContent]));
   const archived = new Set();
   const deleted = new Set();
   let actionCard = null;
   let drag = null;
   let recentDrag = null;
+  let manualCount = 0;
 
   const columnOf = card => card.closest('.board-column').dataset.column;
+  const cardNumber = card => card.querySelector('.case-key').textContent;
+
+  function manualScreenshot(groupName, data) {
+    const group = document.createElement('div');
+    group.className = 'evidence-set';
+    group.dataset.evidenceDevice = groupName;
+    group.setAttribute('role', 'group');
+    group.setAttribute('aria-label', deviceNames.get(groupName));
+    const heading = document.createElement('p');
+    heading.textContent = deviceNames.get(groupName);
+    const gallery = document.createElement('div');
+    gallery.className = 'gallery';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'evidence';
+    const image = document.createElement('img');
+    image.alt = '';
+    image.loading = 'lazy';
+    image.src = data;
+    const label = document.createElement('span');
+    label.textContent = 'Скриншот';
+    button.append(image, label);
+    gallery.append(button);
+    group.append(heading, gallery);
+    return group;
+  }
+
+  function registerManual(entry) {
+    const record = document.querySelector('#manual-finding-template').content.firstElementChild.cloneNode(true);
+    const card = document.querySelector('#manual-board-card-template').content.firstElementChild.cloneNode(true);
+    const number = `#${++manualCount}`;
+    record.id = entry.id;
+    record.dataset.devices = entry.devices.join(' ');
+    record.querySelector('.case-title').textContent = entry.title;
+    record.querySelector('.manual-description').textContent = entry.description;
+    const screenshots = record.querySelector('.finding-gallery');
+    for (const device of entry.devices) {
+      const source = entry.screenshots?.[device];
+      if (typeof source === 'string' && /^data:image\/(webp|png|jpeg);base64,/.test(source)) {
+        screenshots.append(manualScreenshot(device, source));
+      }
+    }
+    screenshots.hidden = !screenshots.firstElementChild;
+    card.dataset.card = entry.id;
+    card.querySelector('a').href = `#${entry.id}`;
+    card.querySelector('.board-card-title').textContent = entry.title;
+    card.querySelector('.board-grip').setAttribute('aria-label', `Действия с правкой ${number}`);
+    for (const item of [record, card]) {
+      item.querySelector('.case-key').textContent = number;
+      const pill = item.querySelector('.pill');
+      pill.classList.add(entry.priority);
+      pill.textContent = priorityNames.get(entry.priority);
+    }
+    findingsList.append(record);
+    findings.push(record);
+    reportRecords.set(record.id, record);
+    columns.get('todo').list.prepend(card);
+    cards.set(record.id, card);
+    return card;
+  }
+
+  function restoreManualFindings() {
+    try {
+      const entries = [];
+      for (const key of Object.keys(localStorage).filter(key => key.startsWith(manualPrefix))) {
+        try {
+          const entry = JSON.parse(localStorage.getItem(key));
+          if (entry?.id !== key.slice(manualPrefix.length) || !/^manual-[a-f0-9-]+$/.test(entry.id)) continue;
+          if (typeof entry.title !== 'string' || typeof entry.description !== 'string' || !priorityNames.has(entry.priority)) continue;
+          if (!Array.isArray(entry.devices) || !entry.devices.length || !entry.devices.every(device => deviceNames.has(device))) continue;
+          entries.push(entry);
+        } catch {
+          // A damaged local entry should not prevent the other cards from opening.
+        }
+      }
+      entries.sort((a, b) => a.created - b.created || a.id.localeCompare(b.id));
+      for (const entry of entries) registerManual(entry);
+    } catch {
+      storageNotice.hidden = false;
+    }
+  }
+
+  function manualDevices() {
+    return manualDevice.value === 'both' ? [...deviceNames.keys()] : [manualDevice.value].filter(device => deviceNames.has(device));
+  }
+
+  function updateUploads() {
+    const devices = manualDevices();
+    for (const label of uploads) label.hidden = !devices.includes(label.dataset.uploadDevice);
+  }
+
+  async function encodeScreenshot(file) {
+    const bitmap = await createImageBitmap(file);
+    try {
+      const scale = Math.min(1, 1600 / bitmap.width, 2400 / bitmap.height);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/webp', .84);
+    } finally {
+      bitmap.close();
+    }
+  }
+
+  for (const button of document.querySelectorAll('.add-finding')) button.addEventListener('click', () => {
+    manualForm.reset();
+    manualError.hidden = true;
+    if (boardView.hidden && deviceFilter !== 'all') manualDevice.value = deviceFilter;
+    updateUploads();
+    manualDialog.showModal();
+  });
+  manualDevice.addEventListener('change', updateUploads);
+  manualCancel.addEventListener('click', () => manualDialog.close());
+  manualDialog.addEventListener('cancel', event => {
+    if (manualSubmit.disabled) event.preventDefault();
+  });
+  manualForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (manualSubmit.disabled) return;
+    const values = new FormData(manualForm);
+    const title = values.get('title').trim();
+    const description = values.get('description').trim();
+    const devices = manualDevices();
+    const priority = values.get('priority');
+    if (!title || !description || !devices.length) {
+      manualError.textContent = 'Введи название и описание, выбери экран.';
+      manualError.hidden = false;
+      return;
+    }
+    manualError.hidden = true;
+    manualSubmit.disabled = true;
+    manualCancel.disabled = true;
+    try {
+      const screenshots = {};
+      for (const device of devices) {
+        const file = values.get(device);
+        if (file?.size) {
+          try {
+            screenshots[device] = await encodeScreenshot(file);
+          } catch {
+            throw new Error('Этот снимок не открывается. Выбери другой файл.');
+          }
+        }
+      }
+      const id = `manual-${crypto.randomUUID()}`;
+      const entry = {id, title, description, devices, priority, screenshots, created: Date.now()};
+      try {
+        localStorage.setItem(manualPrefix + id, JSON.stringify(entry));
+      } catch (error) {
+        if (error.name === 'QuotaExceededError') throw new Error('В браузере закончилось место. Попробуй сохранить правку без скриншотов.');
+        throw new Error('Браузер не разрешил сохранение правки.');
+      }
+      const card = registerManual(entry);
+      refreshVisibility();
+      manualDialog.close();
+      announcement.textContent = `Правка ${cardNumber(card)} добавлена.`;
+      if (boardView.hidden) {
+        location.hash = id;
+      } else {
+        card.scrollIntoView({block:'nearest', inline:'nearest'});
+        card.querySelector('a').focus({preventScroll:true});
+      }
+    } catch (error) {
+      manualError.textContent = error.message;
+      manualError.hidden = false;
+    } finally {
+      manualSubmit.disabled = false;
+      manualCancel.disabled = false;
+    }
+  });
 
   function restoreSavedBoard() {
     let raw;
@@ -1130,14 +1377,14 @@ openHash();
     destination.list.prepend(card);
     refreshCounts();
     saveBoard();
-    announcement.textContent = `Правка ${card.dataset.card} перемещена в колонку «${destination.label}».`;
+    announcement.textContent = `Правка ${cardNumber(card)} перемещена в колонку «${destination.label}».`;
     card.querySelector('.board-grip').focus({preventScroll: true});
     card.scrollIntoView({block: 'nearest', inline: 'nearest'});
   }
 
   function openActions(card) {
     actionCard = card;
-    actionCardTitle.textContent = `${card.dataset.card} ${card.querySelector('.board-card-title').textContent}`;
+    actionCardTitle.textContent = `${cardNumber(card)} ${card.querySelector('.board-card-title').textContent}`;
     for (const button of destinations) button.disabled = button.dataset.destination === columnOf(card);
     actionDialog.showModal();
   }
@@ -1267,8 +1514,10 @@ openHash();
     if (card && event.target.closest('.board-grip')) openActions(card);
   });
 
+  restoreManualFindings();
   restoreSavedBoard();
   refreshVisibility();
+  openHash();
 })();
 
 </script>
